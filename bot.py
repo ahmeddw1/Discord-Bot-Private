@@ -40,7 +40,6 @@ async def on_ready():
     activity = discord.Activity(
         type=discord.ActivityType.listening,
         name="🌐 24/7 | Free"
-        
     )
 
     await bot.change_presence(
@@ -62,4 +61,5 @@ async def main():
 # ---------- START ----------
 if __name__ == "__main__":
     asyncio.run(main())
+
 
