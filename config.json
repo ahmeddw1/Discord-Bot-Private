@@ -1,8 +1,9 @@
 {
-  "token": "MTQ3NzI2Mzg4NDEwMzQ1MDg3Nw.GGlyiZ.DXbXfYGqVw58xdGdhUd9GOmoZfIsR288Hj-EM8",
+  "token": "YOUR TOKEN",
   "prefix": "!",
   "status": "Music | Moderation",
   "default_status": "idle",
   "max_mentions": 5,
   "bad_words": ["monkey", "nigger"]
+
 }
