@@ -38,9 +38,9 @@ async def on_ready():
     # discord.Status.dnd
 
     activity = discord.Activity(
-        type=discord.ActivityType.Streaming,
+        type=discord.ActivityType.listening,
         name="🌐 24/7 | Free"
-        url="https://twitch.tv/discord"
+        
     )
 
     await bot.change_presence(
@@ -62,3 +62,4 @@ async def main():
 # ---------- START ----------
 if __name__ == "__main__":
     asyncio.run(main())
+
