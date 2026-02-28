@@ -1,18 +1,17 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
 import yt_dlp
 import asyncio
 import os
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
-# ================= SPOTIFY =================
+# ================= SPOTIFY SETUP =================
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 
 if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
-    raise RuntimeError("Spotify credentials missing")
+    raise RuntimeError("Spotify credentials are missing")
 
 sp = spotipy.Spotify(
     auth_manager=SpotifyClientCredentials(
@@ -26,12 +25,12 @@ ytdl_opts = {
     "format": "bestaudio/best",
     "quiet": True,
     "default_search": "ytsearch",
-    "noplaylist": True
+    "noplaylist": True,
 }
 
 FFMPEG_OPTIONS = {
     "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-    "options": "-vn"
+    "options": "-vn",
 }
 
 ytdl = yt_dlp.YoutubeDL(ytdl_opts)
@@ -41,45 +40,32 @@ class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # ---------- /join ----------
-    @app_commands.command(name="join", description="Join your voice channel")
-    async def join(self, interaction: discord.Interaction):
-        if not interaction.user.voice:
-            return await interaction.response.send_message(
-                "❌ Join a voice channel first", ephemeral=True
-            )
+    # ---------- JOIN ----------
+    @commands.command()
+    async def join(self, ctx):
+        if not ctx.author.voice:
+            return await ctx.send("❌ Join a voice channel first")
 
-        if interaction.guild.voice_client:
-            return await interaction.response.send_message(
-                "✅ Already connected", ephemeral=True
-            )
+        if ctx.voice_client:
+            return await ctx.send("✅ Already connected")
 
-        await interaction.user.voice.channel.connect()
-        await interaction.response.send_message("🎧 Joined voice channel")
+        await ctx.author.voice.channel.connect()
+        await ctx.send("🎧 Joined voice channel")
 
-    # ---------- /play (SPOTIFY ONLY) ----------
-    @app_commands.command(
-        name="play",
-        description="Play a Spotify track or playlist"
-    )
-    @app_commands.describe(spotify_url="Spotify track or playlist link")
-    async def play(self, interaction: discord.Interaction, spotify_url: str):
+    # ---------- PLAY (SPOTIFY ONLY) ----------
+    @commands.command()
+    async def play(self, ctx, *, spotify_url: str):
         try:
-            if not interaction.user.voice:
-                return await interaction.response.send_message(
-                    "❌ Join a voice channel first", ephemeral=True
-                )
+            if not ctx.author.voice:
+                return await ctx.send("❌ Join a voice channel first")
 
-            vc = interaction.guild.voice_client
-            if not vc:
-                vc = await interaction.user.voice.channel.connect()
+            if not ctx.voice_client:
+                await ctx.author.voice.channel.connect()
 
             if "open.spotify.com" not in spotify_url:
-                return await interaction.response.send_message(
-                    "❌ Only Spotify links are allowed", ephemeral=True
-                )
+                return await ctx.send("❌ Only Spotify links are allowed")
 
-            await interaction.response.send_message("🎧 Reading Spotify...")
+            await ctx.send("🎧 Reading Spotify track...")
 
             # -------- TRACK --------
             if "/track/" in spotify_url:
@@ -93,7 +79,7 @@ class Music(commands.Cog):
                 search = f"{track['name']} {track['artists'][0]['name']}"
 
             else:
-                return await interaction.followup.send("❌ Unsupported Spotify link")
+                return await ctx.send("❌ Unsupported Spotify link")
 
             loop = asyncio.get_event_loop()
 
@@ -107,45 +93,32 @@ class Music(commands.Cog):
 
             source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
 
+            vc = ctx.voice_client
             if vc.is_playing():
                 vc.stop()
 
             vc.play(source)
 
-            await interaction.followup.send(f"🎶 Now playing: **{title}**")
+            await ctx.send(f"🎶 Now playing: **{title}**")
 
         except Exception as e:
-            print("❌ SPOTIFY SLASH ERROR:", repr(e))
-            await interaction.followup.send("❌ Failed to play Spotify track")
+            print("❌ SPOTIFY MUSIC ERROR:", repr(e))
+            await ctx.send("❌ Failed to play Spotify track")
 
-    # ---------- /stop ----------
-    @app_commands.command(name="stop", description="Stop music")
-    async def stop(self, interaction: discord.Interaction):
-        vc = interaction.guild.voice_client
-        if vc and vc.is_playing():
-            vc.stop()
-            await interaction.response.send_message("⏹ Stopped")
-        else:
-            await interaction.response.send_message(
-                "❌ Nothing is playing", ephemeral=True
-            )
+    # ---------- STOP ----------
+    @commands.command()
+    async def stop(self, ctx):
+        if ctx.voice_client and ctx.voice_client.is_playing():
+            ctx.voice_client.stop()
+            await ctx.send("⏹ Stopped")
 
-    # ---------- /leave ----------
-    @app_commands.command(name="leave", description="Leave voice channel")
-    async def leave(self, interaction: discord.Interaction):
-        vc = interaction.guild.voice_client
-        if vc:
-            await vc.disconnect()
-            await interaction.response.send_message("👋 Left voice channel")
-        else:
-            await interaction.response.send_message(
-                "❌ Not connected", ephemeral=True
-            )
+    # ---------- LEAVE ----------
+    @commands.command()
+    async def leave(self, ctx):
+        if ctx.voice_client:
+            await ctx.voice_client.disconnect()
+            await ctx.send("👋 Left voice channel")
 
 
 async def setup(bot):
     await bot.add_cog(Music(bot))
-    bot.tree.add_command(Music(bot).join)
-    bot.tree.add_command(Music(bot).play)
-    bot.tree.add_command(Music(bot).stop)
-    bot.tree.add_command(Music(bot).leave)
