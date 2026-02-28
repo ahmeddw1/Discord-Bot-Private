@@ -2,30 +2,38 @@ import discord
 from discord.ext import commands
 import yt_dlp
 import asyncio
-import spotipy
-from spotipy.oauth2 import SpotifyClientCredentials
+import os
 
-# ---------- SPOTIFY SETUP ----------
-SPOTIFY_CLIENT_ID = "YOUR_SPOTIFY_CLIENT_ID"
-SPOTIFY_CLIENT_SECRET = "YOUR_SPOTIFY_CLIENT_SECRET"
+# ---------- OPTIONAL SPOTIFY ----------
+SPOTIFY_ENABLED = False
+try:
+    import spotipy
+    from spotipy.oauth2 import SpotifyClientCredentials
 
-sp = spotipy.Spotify(
-    auth_manager=SpotifyClientCredentials(
-        client_id=1a81aeeefd5247c0a6bc1d4698cf39d3,
-        client_secret=95ec8923a60e4529969ebb78477161e0
-    )
-)
+    SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
+    SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
+
+    if SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET:
+        sp = spotipy.Spotify(
+            auth_manager=SpotifyClientCredentials(
+                client_id=SPOTIFY_CLIENT_ID,
+                client_secret=SPOTIFY_CLIENT_SECRET
+            )
+        )
+        SPOTIFY_ENABLED = True
+except Exception as e:
+    print("⚠️ Spotify disabled:", e)
 
 # ---------- YTDLP + FFMPEG ----------
 ytdl_opts = {
     "format": "bestaudio/best",
     "quiet": True,
-    "noplaylist": True
+    "noplaylist": True,
 }
 
 ffmpeg_opts = {
     "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-    "options": "-vn"
+    "options": "-vn",
 }
 
 ytdl = yt_dlp.YoutubeDL(ytdl_opts)
@@ -50,41 +58,40 @@ class Music(commands.Cog):
     # ---------- PLAY ----------
     @commands.command()
     async def play(self, ctx, *, query: str):
-        if not ctx.author.voice:
-            return await ctx.send("❌ Join a voice channel first")
+        try:
+            if not ctx.author.voice:
+                return await ctx.send("❌ Join a voice channel first")
 
-        if not ctx.voice_client:
-            await ctx.author.voice.channel.connect()
+            if not ctx.voice_client:
+                await ctx.author.voice.channel.connect()
 
-        await ctx.send("🔍 Processing request...")
+            await ctx.send("🔍 Searching...")
 
-        # 🎧 Spotify track → YouTube search
-        if "open.spotify.com/track" in query:
-            track = sp.track(query)
-            query = f"{track['name']} {track['artists'][0]['name']}"
+            # 🎧 Spotify → YouTube (ONLY if enabled)
+            if SPOTIFY_ENABLED and "open.spotify.com/track" in query:
+                track = sp.track(query)
+                query = f"{track['name']} {track['artists'][0]['name']}"
 
-        # 🎧 Spotify playlist → first track only (safe)
-        if "open.spotify.com/playlist" in query:
-            playlist = sp.playlist_items(query, limit=1)
-            track = playlist["items"][0]["track"]
-            query = f"{track['name']} {track['artists'][0]['name']}"
+            def extract():
+                info = ytdl.extract_info(
+                    f"ytsearch:{query}", download=False
+                )["entries"][0]
+                return info["url"], info["title"]
 
-        def get_audio():
-            info = ytdl.extract_info(
-                f"ytsearch:{query}", download=False
-            )["entries"][0]
-            return info["url"], info["title"]
+            url, title = await asyncio.get_event_loop().run_in_executor(None, extract)
 
-        url, title = await asyncio.get_event_loop().run_in_executor(None, get_audio)
+            source = discord.FFmpegPCMAudio(url, **ffmpeg_opts)
 
-        source = discord.FFmpegPCMAudio(url, **ffmpeg_opts)
+            if ctx.voice_client.is_playing():
+                ctx.voice_client.stop()
 
-        if ctx.voice_client.is_playing():
-            ctx.voice_client.stop()
+            ctx.voice_client.play(source)
 
-        ctx.voice_client.play(source)
+            await ctx.send(f"🎶 Now playing: **{title}**")
 
-        await ctx.send(f"🎶 Now playing: **{title}**")
+        except Exception as e:
+            print("❌ MUSIC ERROR:", e)
+            await ctx.send("❌ Error playing this track")
 
     # ---------- STOP ----------
     @commands.command()
