@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 
 # ✅ WORKING RADIO STREAM (Radio Fm)
-RADIO_STREAM_URL = "https://boxradio-edge-00.streamafrica.net/lofi"
+RADIO_STREAM_URL = "http://n02.radiojar.com/0tpy1h0kxtzuv?rj-ttl=5&rj-tok=AAABnKVeaGEACFc-W5kSucCAzA"
 
 FFMPEG_OPTIONS = {
     "before_options": (
@@ -72,5 +72,6 @@ class Radio(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(Radio(bot))
+
 
 
