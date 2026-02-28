@@ -4,7 +4,7 @@ import yt_dlp
 import asyncio
 import os
 
-# ---------- OPTIONAL SPOTIFY ----------
+# ================= OPTIONAL SPOTIFY =================
 SPOTIFY_ENABLED = False
 try:
     import spotipy
@@ -21,17 +21,19 @@ try:
             )
         )
         SPOTIFY_ENABLED = True
+        print("✅ Spotify enabled")
 except Exception as e:
     print("⚠️ Spotify disabled:", e)
 
-# ---------- YTDLP + FFMPEG ----------
+# ================= YTDLP / FFMPEG =================
 ytdl_opts = {
     "format": "bestaudio/best",
     "quiet": True,
+    "default_search": "ytsearch",
     "noplaylist": True,
 }
 
-ffmpeg_opts = {
+FFMPEG_OPTIONS = {
     "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
     "options": "-vn",
 }
@@ -43,7 +45,7 @@ class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # ---------- JOIN ----------
+    # ---------------- JOIN ----------------
     @commands.command()
     async def join(self, ctx):
         if not ctx.author.voice:
@@ -55,7 +57,7 @@ class Music(commands.Cog):
         await ctx.author.voice.channel.connect()
         await ctx.send("🎧 Joined voice channel")
 
-    # ---------- PLAY ----------
+    # ---------------- PLAY ----------------
     @commands.command()
     async def play(self, ctx, *, query: str):
         try:
@@ -67,40 +69,43 @@ class Music(commands.Cog):
 
             await ctx.send("🔍 Searching...")
 
-            # 🎧 Spotify → YouTube (ONLY if enabled)
+            # Spotify → YouTube search
             if SPOTIFY_ENABLED and "open.spotify.com/track" in query:
                 track = sp.track(query)
                 query = f"{track['name']} {track['artists'][0]['name']}"
 
+            loop = asyncio.get_event_loop()
+
             def extract():
-                info = ytdl.extract_info(
-                    f"ytsearch:{query}", download=False
-                )["entries"][0]
-                return info["url"], info["title"]
+                data = ytdl.extract_info(query, download=False)
+                if "entries" in data:
+                    data = data["entries"][0]
+                return data["url"], data["title"]
 
-            url, title = await asyncio.get_event_loop().run_in_executor(None, extract)
+            url, title = await loop.run_in_executor(None, extract)
 
-            source = discord.FFmpegPCMAudio(url, **ffmpeg_opts)
+            source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
 
-            if ctx.voice_client.is_playing():
-                ctx.voice_client.stop()
+            vc = ctx.voice_client
+            if vc.is_playing():
+                vc.stop()
 
-            ctx.voice_client.play(source)
+            vc.play(source)
 
             await ctx.send(f"🎶 Now playing: **{title}**")
 
         except Exception as e:
-            print("❌ MUSIC ERROR:", e)
-            await ctx.send("❌ Error playing this track")
+            print("❌ MUSIC ERROR:", repr(e))
+            await ctx.send("❌ FFmpeg failed to play this track")
 
-    # ---------- STOP ----------
+    # ---------------- STOP ----------------
     @commands.command()
     async def stop(self, ctx):
         if ctx.voice_client and ctx.voice_client.is_playing():
             ctx.voice_client.stop()
             await ctx.send("⏹ Stopped")
 
-    # ---------- LEAVE ----------
+    # ---------------- LEAVE ----------------
     @commands.command()
     async def leave(self, ctx):
         if ctx.voice_client:
