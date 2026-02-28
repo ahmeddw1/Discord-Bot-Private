@@ -34,7 +34,7 @@ async def setup_hook():
 async def on_ready():
     activity = discord.Activity(
         type=discord.ActivityType.listening,  # Listening, Playing, Watching, Competing
-        name="24/7 | Online"                  # This is what it will show
+        name="🌐 24/7 | Online 🌐"                  # This is what it will show
     )
     await bot.change_presence(status=discord.Status.idle, activity=activity)
 
@@ -52,6 +52,7 @@ async def main():
 # ---------- START ----------
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
