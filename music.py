@@ -3,27 +3,22 @@ from discord.ext import commands
 import yt_dlp
 import asyncio
 import os
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
 
-# ================= OPTIONAL SPOTIFY =================
-SPOTIFY_ENABLED = False
-try:
-    import spotipy
-    from spotipy.oauth2 import SpotifyClientCredentials
+# ================= SPOTIFY SETUP =================
+SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 
-    SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
-    SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
+if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
+    raise RuntimeError("Spotify credentials are missing")
 
-    if SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET:
-        sp = spotipy.Spotify(
-            auth_manager=SpotifyClientCredentials(
-                client_id=SPOTIFY_CLIENT_ID,
-                client_secret=SPOTIFY_CLIENT_SECRET
-            )
-        )
-        SPOTIFY_ENABLED = True
-        print("✅ Spotify enabled")
-except Exception as e:
-    print("⚠️ Spotify disabled:", e)
+sp = spotipy.Spotify(
+    auth_manager=SpotifyClientCredentials(
+        client_id=SPOTIFY_CLIENT_ID,
+        client_secret=SPOTIFY_CLIENT_SECRET
+    )
+)
 
 # ================= YTDLP / FFMPEG =================
 ytdl_opts = {
@@ -45,7 +40,7 @@ class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # ---------------- JOIN ----------------
+    # ---------- JOIN ----------
     @commands.command()
     async def join(self, ctx):
         if not ctx.author.voice:
@@ -57,9 +52,9 @@ class Music(commands.Cog):
         await ctx.author.voice.channel.connect()
         await ctx.send("🎧 Joined voice channel")
 
-    # ---------------- PLAY ----------------
+    # ---------- PLAY (SPOTIFY ONLY) ----------
     @commands.command()
-    async def play(self, ctx, *, query: str):
+    async def play(self, ctx, *, spotify_url: str):
         try:
             if not ctx.author.voice:
                 return await ctx.send("❌ Join a voice channel first")
@@ -67,17 +62,29 @@ class Music(commands.Cog):
             if not ctx.voice_client:
                 await ctx.author.voice.channel.connect()
 
-            await ctx.send("🔍 Searching...")
+            if "open.spotify.com" not in spotify_url:
+                return await ctx.send("❌ Only Spotify links are allowed")
 
-            # Spotify → YouTube search
-            if SPOTIFY_ENABLED and "open.spotify.com/track" in query:
-                track = sp.track(query)
-                query = f"{track['name']} {track['artists'][0]['name']}"
+            await ctx.send("🎧 Reading Spotify track...")
+
+            # -------- TRACK --------
+            if "/track/" in spotify_url:
+                track = sp.track(spotify_url)
+                search = f"{track['name']} {track['artists'][0]['name']}"
+
+            # -------- PLAYLIST (FIRST TRACK ONLY) --------
+            elif "/playlist/" in spotify_url:
+                playlist = sp.playlist_items(spotify_url, limit=1)
+                track = playlist["items"][0]["track"]
+                search = f"{track['name']} {track['artists'][0]['name']}"
+
+            else:
+                return await ctx.send("❌ Unsupported Spotify link")
 
             loop = asyncio.get_event_loop()
 
             def extract():
-                data = ytdl.extract_info(query, download=False)
+                data = ytdl.extract_info(search, download=False)
                 if "entries" in data:
                     data = data["entries"][0]
                 return data["url"], data["title"]
@@ -95,17 +102,17 @@ class Music(commands.Cog):
             await ctx.send(f"🎶 Now playing: **{title}**")
 
         except Exception as e:
-            print("❌ MUSIC ERROR:", repr(e))
-            await ctx.send("❌ FFmpeg failed to play this track")
+            print("❌ SPOTIFY MUSIC ERROR:", repr(e))
+            await ctx.send("❌ Failed to play Spotify track")
 
-    # ---------------- STOP ----------------
+    # ---------- STOP ----------
     @commands.command()
     async def stop(self, ctx):
         if ctx.voice_client and ctx.voice_client.is_playing():
             ctx.voice_client.stop()
             await ctx.send("⏹ Stopped")
 
-    # ---------------- LEAVE ----------------
+    # ---------- LEAVE ----------
     @commands.command()
     async def leave(self, ctx):
         if ctx.voice_client:
