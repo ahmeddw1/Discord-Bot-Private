@@ -43,7 +43,7 @@ async def on_ready():
     )
 
     await bot.change_presence(
-        status=discord.Status.online,
+        status=discord.Status.idle,
         activity=activity
     )
 
@@ -61,5 +61,6 @@ async def main():
 # ---------- START ----------
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
