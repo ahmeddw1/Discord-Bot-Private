@@ -1,41 +1,50 @@
-# ================= LOAD ENV =================
 from dotenv import load_dotenv
-import os
-
 load_dotenv("env.txt")
 
-# ================= IMPORTS =================
 import discord
 from discord.ext import commands
 import asyncio
+import os
 
-# ================= INTENTS =================
+# ---------- INTENTS ----------
 intents = discord.Intents.default()
 intents.message_content = True
-intents.voice_states = True
 intents.guilds = True
+intents.voice_states = True
+intents.members = True
 
-# ================= BOT =================
+# ---------- BOT ----------
 bot = commands.Bot(
     command_prefix="!",
     intents=intents
 )
 
-# ================= LOAD EXTENSIONS =================
-async def load_extensions():
-    await bot.load_extension("music")
-
-# ================= EVENTS =================
+# ---------- SETUP ----------
 @bot.event
-async def on_ready():
+async def setup_hook():
+    # Load cogs
+    await bot.load_extension("music")        # SoundCloud music
+    await bot.load_extension("radio")        # 24/7 radio
+    await bot.load_extension("moderation")  # Clear / ban / kick
+
+    # Sync slash commands
     await bot.tree.sync()
-    print(f"✅ Logged in as {bot.user}")
     print("✅ Slash commands synced")
 
-# ================= MAIN =================
-async def main():
-    async with bot:
-        await load_extensions()
-        await bot.start(os.getenv("DISCORD_TOKEN"))
+# ---------- READY ----------
+@bot.event
+async def on_ready():
+    print(f"✅ Logged in as {bot.user}")
+    print(f"🌐 Connected to {len(bot.guilds)} servers")
 
-asyncio.run(main())
+# ---------- MAIN ----------
+async def main():
+    token = os.getenv("DISCORD_TOKEN")
+    if not token:
+        raise RuntimeError("DISCORD_TOKEN is missing")
+
+    await bot.start(token)
+
+# ---------- START ----------
+if __name__ == "__main__":
+    asyncio.run(main())
