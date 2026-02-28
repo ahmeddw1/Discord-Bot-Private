@@ -2,4 +2,5 @@ discord.py
 yt-dlp
 PyNaCl
 spotipy
+ffmpeg
 python-dotenv
