@@ -18,7 +18,25 @@ bot = commands.Bot(
     command_prefix="!",
     intents=intents
 )
+# Panel URL from environment variable (optional: you can hardcode here too)
+PANEL_URL = os.environ.get("PANEL_URL", "https://botpanel-ahmeddw.netlify.app/")
 
+class Panel(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @app_commands.command(name="panel", description="Get the link to the dashboard panel")
+    async def panel(self, interaction: discord.Interaction):
+        # Create a button
+        button = discord.ui.Button(label="Open Panel", url=PANEL_URL, style=discord.ButtonStyle.link)
+        view = discord.ui.View()
+        view.add_item(button)
+
+        # Send the message with the button (ephemeral so only the user sees it)
+        await interaction.response.send_message("Click the button below to open the panel:", view=view, ephemeral=True)
+
+# Add the cog
+bot.add_cog(Panel(bot))
 # ---------- SETUP ----------
 @bot.event
 async def setup_hook():
@@ -61,6 +79,7 @@ async def main():
 # ---------- START ----------
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
