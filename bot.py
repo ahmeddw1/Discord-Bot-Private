@@ -1,15 +1,24 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
-import json
 import os
-intents = discord.Intents.all()
+import json
 
-with open("config.json") as f:
+# ---------- LOAD CONFIG ----------
+with open("config.json", "r") as f:
     config = json.load(f)
 
-bot = commands.Bot(command_prefix=config["prefix"], intents=intents)
+# ---------- INTENTS (VERY IMPORTANT) ----------
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+intents.voice_states = True
 
+bot = commands.Bot(
+    command_prefix=config.get("prefix", "!"),
+    intents=intents
+)
+
+# ---------- BOT READY ----------
 @bot.event
 async def on_ready():
     status_map = {
@@ -19,16 +28,27 @@ async def on_ready():
     }
 
     await bot.change_presence(
-        status=status_map[config["default_status"]],
-        activity=discord.Game(config["status"])
+        status=status_map.get(config.get("default_status", "online")),
+        activity=discord.Game(config.get("status", "Bot Online"))
     )
 
-    await bot.tree.sync()
     print(f"✅ Logged in as {bot.user}")
 
-# Load cogs
-bot.load_extension("music")
-bot.load_extension("automod")
+# ---------- TEST COMMAND ----------
+@bot.command()
+async def ping(ctx):
+    await ctx.send("🏓 pong")
 
+# ---------- LOAD COGS ----------
+async def load_extensions():
+    await bot.load_extension("music")
+    await bot.load_extension("automod")
 
-bot.run(os.getenv("DISCORD_TOKEN"))
+# ---------- START BOT ----------
+async def main():
+    async with bot:
+        await load_extensions()
+        await bot.start(os.getenv("DISCORD_TOKEN") or config["token"])
+
+import asyncio
+asyncio.run(main())
