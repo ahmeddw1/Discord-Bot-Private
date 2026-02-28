@@ -37,8 +37,14 @@ async def on_ready():
 # ---------- TEST COMMAND ----------
 @bot.command()
 async def ping(ctx):
-    await ctx.send("🏓 pong")
+    await ctx.send("🏓 pong") 
 
+
+@bot.event
+async def on_ready():
+    await bot.tree.sync()
+    print("✅ Slash commands synced")
+    
 # ---------- LOAD COGS ----------
 async def load_extensions():
     await bot.load_extension("music")
@@ -52,3 +58,4 @@ async def main():
 
 import asyncio
 asyncio.run(main())
+
