@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import json
-
+import os
 intents = discord.Intents.all()
 
 with open("config.json") as f:
@@ -30,4 +30,5 @@ async def on_ready():
 bot.load_extension("music")
 bot.load_extension("automod")
 
-bot.run(config["token"])
+
+bot.run(os.getenv("DISCORD_TOKEN"))
