@@ -18,7 +18,7 @@ intents.presences = True
 bot = commands.Bot(
     command_prefix="!",
     intents=intents,
-    status=discord.Status.idle,
+    status=discord.Status.dnd,
     activity=discord.Activity(type=discord.ActivityType.listening, name="📻 Radio 24/7")
 )
 
@@ -102,3 +102,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
