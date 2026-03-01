@@ -32,11 +32,12 @@ async def setup_hook():
 # ---------- READY ----------
 @bot.event
 async def on_ready():
-    activity = discord.Activity(
-        type=discord.ActivityType.listening,  # Listening, Playing, Watching, Competing
-        name="🌐 24/7 | Online 🌐"                  # This is what it will show
-    )
-    await bot.change_presence(status=discord.Status.idle, activity=activity)
+    await bot.change_presence(
+        status=discord.Status.idle,  # online | idle | dnd | invisible
+        activity=discord.Game(" 🌐 24/ 7🌐 | works")
+    ) 
+    
+   
 
     print(f"✅ Logged in as {bot.user}")
     print(f"🌐 Connected to {len(bot.guilds)} servers")
@@ -52,6 +53,7 @@ async def main():
 # ---------- START ----------
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
