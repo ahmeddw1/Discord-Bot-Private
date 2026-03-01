@@ -13,110 +13,88 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
 intents.members = True
-intents.presences = True # Required for Online/Offline dashboard counts
+intents.presences = True 
 
-# We set status=idle here so it never flashes green
 bot = commands.Bot(
     command_prefix="!",
     intents=intents,
     status=discord.Status.idle,
-    activity=discord.Activity(type=discord.ActivityType.listening, name="🌐 24/7 | Works")
+    activity=discord.Activity(type=discord.ActivityType.listening, name="📻 Radio 24/7")
 )
 
-# ---------- 2. RADIO CONFIGURATION ----------
+# ---------- 2. RADIO CONFIGURATION (FIXED FOR SOUND) ----------
 RADIO_URL = "http://n02.radiojar.com/0tpy1h0kxtzuv"
+
+# Fixed FFmpeg options to prevent silent timeouts and force audio reconnection
 FFMPEG_OPTS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-    'options': '-vn'
+    'options': '-vn -loglevel panic'
 }
 
-# ---------- 3. DASHBOARD API LOGIC ----------
-async def get_stats(request):
-    server_list = []
-    for guild in bot.guilds:
-        # Calculate Online vs Offline for the dashboard
-        online = len([m for m in guild.members if m.status != discord.Status.offline])
-        server_list.append({
-            "id": str(guild.id),
-            "name": guild.name,
-            "total": guild.member_count,
-            "online": online,
-            "offline": guild.member_count - online,
-            "icon": str(guild.icon.url) if guild.icon else None
-        })
+# ---------- 3. RADIO LOGIC (FIXED) ----------
+async def start_radio(vc):
+    """Helper function to handle audio source creation and playback"""
+    if vc.is_playing():
+        vc.stop()
     
-    return web.json_response({
-        "status": str(bot.status),
-        "servers": len(bot.guilds),
-        "users": sum(g.member_count for g in bot.guilds),
-        "serverList": server_list
-    })
+    # We use PCMVolumeTransformer to ensure the stream is wrapped correctly for Discord
+    source = discord.FFmpegPCMAudio(RADIO_URL, **FFMPEG_OPTS)
+    transformed_source = discord.PCMVolumeTransformer(source, volume=0.5)
+    
+    vc.play(transformed_source, after=lambda e: print(f'Player error: {e}') if e else None)
 
-async def update_status(request):
-    data = await request.json()
-    s_map = {"online": discord.Status.online, "idle": discord.Status.idle, "dnd": discord.Status.dnd}
-    t_map = {"PLAYING": discord.ActivityType.playing, "LISTENING": discord.ActivityType.listening, "WATCHING": discord.ActivityType.watching}
-
-    await bot.change_presence(
-        status=s_map.get(data.get('status'), discord.Status.idle),
-        activity=discord.Activity(
-            type=t_map.get(data.get('type'), discord.ActivityType.listening), 
-            name=data.get('name', 'Works')
-        )
-    )
-    return web.json_response({"success": True})
-
-# ---------- 4. BOT EVENTS & SYNC FIX ----------
-@bot.event
-async def setup_hook():
-    # Start Dashboard Web Server
-    app = web.Application()
-    app.router.add_get('/api/dashboard', get_stats)
-    app.router.add_post('/api/settings/status', update_status)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 3000)
-    asyncio.create_task(site.start())
-
-    # Load other cogs if you still have them
-    for ext in ["music", "moderation"]:
-        try:
-            await bot.load_extension(ext)
-        except:
-            pass
-
-    # FIXED: Sync logic that ignores the 50240 Entry Point error
-    try:
-        await bot.tree.sync()
-        print("✅ Commands synced")
-    except discord.errors.HTTPException as e:
-        if e.code == 50240:
-            print("⚠️ Entry Point error ignored - Bot starting anyway.")
-
-@bot.event
-async def on_ready():
-    print(f"✅ {bot.user} is Online and IDLE")
-
-# ---------- 5. RADIO COMMANDS (Integrated) ----------
+# ---------- 4. COMMANDS (PREFIX & SLASH) ----------
 @bot.hybrid_command(name="radio", description="Play 24/7 Radio")
 async def radio(ctx):
     if not ctx.author.voice:
-        return await ctx.send("❌ Join a voice channel first")
+        return await ctx.send("❌ You must be in a voice channel!")
     
+    # Connect or Move to the user's channel
     if not ctx.voice_client:
-        await ctx.author.voice.channel.connect()
-    
-    source = discord.FFmpegPCMAudio(RADIO_URL, **FFMPEG_OPTS)
-    ctx.voice_client.play(discord.PCMVolumeTransformer(source, volume=0.5))
-    await ctx.send("📻 **Radio started!**")
+        vc = await ctx.author.voice.channel.connect()
+    else:
+        vc = ctx.voice_client
+        if vc.channel != ctx.author.voice.channel:
+            await vc.move_to(ctx.author.voice.channel)
 
-@bot.hybrid_command(name="stop", description="Stop the radio")
+    await start_radio(vc)
+    await ctx.send("📻 **Radio is now playing!** (If no sound, wait 3 seconds)")
+
+@bot.hybrid_command(name="stop", description="Stop the radio and leave")
 async def stop(ctx):
     if ctx.voice_client:
         await ctx.voice_client.disconnect()
-        await ctx.send("⏹ Stopped")
+        await ctx.send("⏹ Radio stopped.")
 
-# ---------- 6. START ----------
+# ---------- 5. DASHBOARD API & SYNC FIX ----------
+async def get_stats(request):
+    server_list = []
+    for guild in bot.guilds:
+        online = len([m for m in guild.members if m.status != discord.Status.offline])
+        server_list.append({
+            "name": guild.name,
+            "online": online,
+            "total": guild.member_count,
+            "icon": str(guild.icon.url) if guild.icon else None
+        })
+    return web.json_response({"status": str(bot.status), "serverList": server_list})
+
+@bot.event
+async def setup_hook():
+    # Start API for Dashboard
+    app = web.Application()
+    app.router.add_get('/api/dashboard', get_stats)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    await web.TCPSite(runner, '0.0.0.0', 3000).start()
+
+    # Sync commands while ignoring Entry Point errors
+    try:
+        await bot.tree.sync()
+    except discord.HTTPException as e:
+        if e.code == 50240: print("⚠️ Ignoring Entry Point error.")
+
+# ---------- 6. RUN ----------
 async def main():
     token = os.getenv("DISCORD_TOKEN")
     async with bot:
