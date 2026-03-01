@@ -1,0 +1,13 @@
+[phases.setup]
+# Use nixPkgs for the most stable versions on Railway
+nixPkgs = ["...", "ffmpeg"]
+# aptPkgs provides the necessary audio development headers
+aptPkgs = ["...", "libopus-dev", "libnacl-dev"]
+
+[phases.install]
+# Ensures all python dependencies are refreshed
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+# Replace 'bot.py' with your main file name if it's different
+cmd = "python bot.py"
