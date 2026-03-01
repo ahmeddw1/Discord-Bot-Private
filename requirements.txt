@@ -1,6 +1,11 @@
+discord.py[voice]
+python-dotenv
+aiohttp
 discord.py
 yt-dlp
 PyNaCl
 ffmpeg
-python-dotenv
-
+flask
+flask-socketio
+eventlet
+requests
