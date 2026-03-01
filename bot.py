@@ -35,23 +35,24 @@ async def setup_hook():
         print(f"❌ Extension error: {e}")
 
 # ---------- READY ----------
+# ---------- READY ----------
 @bot.event
 async def on_ready():
-
-    # Custom status (Listening)
+    # Force the status update
     await bot.change_presence(
-        status=discord.Status.idle,
+        status=discord.Status.idle, 
         activity=discord.Activity(
-            type=discord.ActivityType.listening,
+            type=discord.ActivityType.listening, 
             name="🌐 24/7 | Works"
         )
     )
 
     print("=================================")
     print(f"✅ Logged in as {bot.user}")
-    print(f"🆔 Bot ID: {bot.user.id}")
+    print(f"🌙 Status set to: IDLE")
     print(f"🌐 Connected to {len(bot.guilds)} servers")
     print("=================================")
+
 
 # ---------- ERROR HANDLER ----------
 @bot.event
@@ -71,3 +72,4 @@ async def main():
 # ---------- START ----------
 if __name__ == "__main__":
     asyncio.run(main())
+
