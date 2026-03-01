@@ -28,13 +28,23 @@ async def setup_hook():
         await bot.load_extension("radio")
         await bot.load_extension("moderation")
 
-        await bot.tree.sync()  # Sync global slash commands
+        # Sync commands while avoiding the Entry Point conflict
+        await bot.tree.sync() 
         print("✅ Slash commands synced")
 
+    except discord.errors.HTTPException as e:
+        if e.code == 50240:
+            print("⚠️ Entry Point error ignored; commands still syncing...")
+        else:
+            print(f"❌ HTTP Error: {e}")
     except Exception as e:
         print(f"❌ Extension error: {e}")
 
 # ---------- READY ----------
+
+
+
+
 # ---------- READY ----------
 @bot.event
 async def on_ready():
@@ -72,4 +82,5 @@ async def main():
 # ---------- START ----------
 if __name__ == "__main__":
     asyncio.run(main())
+
 
