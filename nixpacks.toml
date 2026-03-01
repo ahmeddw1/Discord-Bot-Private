@@ -1,13 +1,21 @@
 [phases.setup]
-# Use nixPkgs for the most stable versions on Railway
-nixPkgs = ["...", "ffmpeg"]
-# aptPkgs provides the necessary audio development headers
-aptPkgs = ["...", "libopus-dev", "libnacl-dev"]
+# This tells Railway to install Python 3.12 and FFmpeg
+nixPkgs = ["python312", "ffmpeg"]
+# These are the system libraries needed for Discord voice/audio
+aptPkgs = ["libopus-dev", "libnacl-dev", "build-essential"]
 
 [phases.install]
-# Ensures all python dependencies are refreshed
-cmds = ["pip install -r requirements.txt"]
+# This manually ensures a virtual environment is created and used
+cmds = [
+    "python -m venv /opt/venv",
+    "/opt/venv/bin/pip install --upgrade pip",
+    "/opt/venv/bin/pip install -r requirements.txt"
+]
+
+[phases.build]
+# Keeps the environment clean
+dependsOn = ["install"]
 
 [start]
-# Replace 'bot.py' with your main file name if it's different
-cmd = "python bot.py"
+# Ensures the bot runs using the virtual environment we created
+cmd = "/opt/venv/bin/python bot.py"
