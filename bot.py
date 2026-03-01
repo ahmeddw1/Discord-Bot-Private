@@ -68,25 +68,41 @@ async def update_status(request):
     return web.json_response({"success": True})
 
 # ---------- SETUP HOOK ----------
+# ---------- SETUP ----------
 @bot.event
 async def setup_hook():
-    # Fixed: Start the Dashboard API server on Port 3000
-    app = web.Application()
-    app.router.add_get('/api/dashboard', get_stats)
-    app.router.add_post('/api/settings/status', update_status)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 3000)
-    asyncio.create_task(site.start())
+    # 1. Start the Dashboard Web Server first
+    try:
+        app = web.Application()
+        app.router.add_get('/api/dashboard', get_stats)
+        app.router.add_post('/api/settings/status', update_status)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, '0.0.0.0', 3000)
+        asyncio.create_task(site.start())
+        print("✅ Dashboard API started on port 3000")
+    except Exception as e:
+        print(f"❌ Dashboard error: {e}")
 
-    # Load your extensions here
-    extensions = ["music", "radio", "moderation"]
-    for ext in extensions:
+    # 2. Load your extensions (Music, Radio, etc.)
+    for ext in ["music", "radio", "moderation"]:
         try:
             await bot.load_extension(ext)
+            print(f"✅ Loaded extension: {ext}")
         except Exception as e:
-            print(f"❌ Extension error {ext}: {e}")
-    
+            print(f"❌ Failed to load {ext}: {e}")
+
+    # 3. Sync commands with Error Handling for 50240
+    try:
+        print("Attempting to sync commands...")
+        await bot.tree.sync()
+        print("✅ Slash commands synced successfully")
+    except discord.errors.HTTPException as e:
+        if e.code == 50240:
+            print("⚠️ Entry Point error (50240) detected.")
+            print("⚠️ Ignoring the sync error so the bot stays online.")
+        else:
+            print(f"❌ HTTP Error during sync: {e}")
     await bot.tree.sync()
 
 @bot.event
@@ -104,3 +120,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
