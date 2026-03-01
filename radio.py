@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 
 # ✅ UPDATED STREAM URL & STABLE OPTIONS
-RADIO_STREAM_URL = "http://n0a.radiojar.com/0tpy1h0kxtzuv?rj-ttl=5&rj-tok=AAABnKmYN-gAC1mO1NaDosKFmA"
+RADIO_STREAM_URL = "https://image2url.com/r2/default/audio/1772379929071-7c44843b-4047-44ce-8473-53b5cb9df981.mp3"
 
 FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
@@ -81,4 +81,5 @@ class Radio(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(Radio(bot))
+
 
